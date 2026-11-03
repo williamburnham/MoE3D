@@ -1,0 +1,15 @@
+# The dataset is distributed separately and never committed. Everything under
+# data/ is ignored except the empty data/MoE3D_data/ placeholder, so stray
+# copies of the data elsewhere in data/ cannot be committed either.
+data/*
+!data/MoE3D_data/
+data/MoE3D_data/*
+!data/MoE3D_data/.gitkeep
+
+# Builds written by build_dataset.py
+dataset_build/*
+!dataset_build/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
