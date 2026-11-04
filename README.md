@@ -341,13 +341,20 @@ Some trials have no EMG recording; their motion is still included.
 ## 8. Validation
 
 `validation/ROM_ANOVA` compares lower-limb joint range of motion across
-sub-datasets (one-way ANOVA, Welch, Tukey-Kramer), from SMPLH_AMASS. Its CSVs
-and figures are included; to recompute (needs numpy, scipy, pandas,
-matplotlib):
+sub-datasets (one-way ANOVA, Welch, Tukey-Kramer), from SMPLH_AMASS. The
+figures and the summary results are included: `anova_contrasts.csv`,
+`tukey_kramer.csv` and `participant_rom.csv`. The figure scripts read the last
+two, so the figures can be redrawn without the dataset. To recompute everything
+(needs the dataset, numpy, scipy, pandas and matplotlib):
 
 ```bash
 cd validation/ROM_ANOVA && python main.py
+for f in fig*/make_figure.py; do python "$f"; done
 ```
+
+`main.py` also writes the per-trial tables (`rom_<sub-dataset>.csv`,
+`rom_all.csv`, `rom_all_unfiltered.csv`, `anova_trial_level.csv`), which are
+not committed.
 
 
 ## 9. Visualisation
