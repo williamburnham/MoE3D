@@ -5,5 +5,5 @@
   "trials": "overground_and_translated_treadmill_gait",
   "subdatasets": "all",
   "exclude": ["1MPS"],
-  "name": "walking_translated_no_1MPS"
+  "name": "gait_healthy_and_stroke"
 }

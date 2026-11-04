@@ -1,9 +1,8 @@
-# MoE3D — Motion and EMG of 3D gait
+# MoE3D — MoE3D: A Dataset of Healthy and Post-Stroke Motion Capture and Electromyography for Machine Learning
 
-MoE3D pairs full-body motion with surface EMG from eight sub-datasets of healthy,
-stroke and spastic-paraplegia participants, captured overground and on
-treadmills. Everything is stored once, in its most complete form, under
-`data/MoE3D_data/`.
+MoE3D pairs full-body motion with surface EMG from multiple sub-datasets of healthy,
+stroke and spastic-paraplegia participants. Everything is stored once, in its most
+complete form, under `data/MoE3D_data/`.
 `build_dataset.py` then assembles whichever version of the dataset you need into
 `dataset_build/`.
 
@@ -32,6 +31,7 @@ MoE3D/
   README.md                  this file
   dataset_build/             builds are written here
   validation/ROM_ANOVA/      joint range-of-motion ANOVA across sub-datasets
+  visualisation/             clip viewer: skeleton and EMG, video export (section 9)
   data/
     MoE3D_data/                      the dataset (not in the git repository)
       motion/
@@ -64,13 +64,6 @@ other_treadmill/original/    other_treadmill/translated/
 EMG categories are the same four without the original/translated split: one
 recording serves both versions of a treadmill trial.
 
-| | |
-|---|---|
-| `gait` | level walking (actions GaitGr, GaitTm) |
-| `other` | everything else: stairs, slopes, sit-to-stand, standing tasks, running, jumping, landing, squats, lunges, dragging, leg-high |
-| `treadmill` | trials on a moving belt: 24MP/1MPS GaitTm, Draggi, LegHig and 9WRT GaitTm, Runnin. Treadmill standing and exercise tasks have no belt motion and count as overground. |
-
-
 ## 3. Naming
 
 Every file is named
@@ -101,6 +94,9 @@ format: `poses` [T,156] axis-angle, `trans` [T,3] metres (Z up), `betas` [16],
 `gender`, `mocap_framerate`. Translated treadmill trials also carry
 `treadmill_belt_velocity` [3] (m/s, AMASS frame) and `trim_start_frame` /
 `trim_end_frame` (mocap frames of the untrimmed trial; see section 7).
+Every file also carries `measured_joints` [52] (bool, SMPL-H joint order, as
+in `poses`): False where the joint's rotation came from MoSh++'s pose prior
+rather than from markers (see section 7).
 The SMPL-H model itself is licensed separately (mano.is.tue.mpg.de).
 
 **263dim_HumanML3D_normalisation** (`.npy`, one per clip, 20 fps)
@@ -259,6 +255,7 @@ is dominated by writing files: a full `all_original` build (about 28,000 files,
 | `translated`, `translation_status`, `belt_speed_mps`, `trim_start_frame`, `trim_end_frame` | treadmill translation (section 7) |
 | `emg_processed` | 1 if the trial has EMG |
 | `emg_raw_fs` | native EMG rate |
+| `unmeasured_joints` | SMPL-H body joints with no marker data, `;`-separated (section 7); blank if all were measured |
 
 `index_2.csv` and `index_2_translated.csv` give each clip's window inside its trial
 (`trial`, `start_frame`, `end_frame`, `new_name`), in 263-dim frames of the untrimmed
@@ -298,11 +295,18 @@ variability).
 
 ### Joints that were never measured
 
-9WRT has no marker below the shoulders; 10KH and 10KS have none above the
-pelvis. Those joints come from the body model's pose prior, so they are set
+9WRT has no markers on the head, neck or arms; 10KH and 10KS have none above
+the pelvis. Those joints come from the body model's pose prior, so they are set
 to exactly zero in the 263-dim files (9WRT: neck, head, collars, arms;
-10KH/10KS: also the spine). SMPLH_AMASS keeps the fitted values; treat them
-with the same caution.
+10KH/10KS: also the spine).
+
+SMPLH_AMASS keeps the fitted values and marks them instead: `measured_joints`
+is False for those joints, and `trials.csv` lists them in `unmeasured_joints`.
+They are not zeroed there because a zero rotation is not "missing" in SMPL-H.
+It is the rest pose, so the body would show arms held straight out and a rigid
+trunk. Leg and pelvis motion does not depend on them: every leg joint descends
+from the pelvis, not from the spine. Finger joints (`measured_joints[22:]`) are
+False in every file, because no marker set has finger markers.
 
 ### Single-leg EMG
 
@@ -344,3 +348,73 @@ matplotlib):
 ```bash
 cd validation/ROM_ANOVA && python main.py
 ```
+
+
+## 9. Visualisation
+
+`visualisation/visualise_tool.py` plays a clip's skeleton next to its EMG, and
+saves what is on screen as a video (`.mp4`, `.gif`) or as a still figure of
+overlaid frames. Needs numpy and matplotlib, tkinter for the window, and ffmpeg
+for `.mp4`.
+
+```bash
+cd visualisation
+python visualise_tool.py                                  # open the viewer, add files
+python visualise_tool.py 138H-Hlth-GaitGr-0001-0100       # one clip by name
+python visualise_tool.py 24MP-Hlth-GaitTm-0013-05 --source hml3d-tt   # all clips of a trial
+python visualise_tool.py 138H-Hlth-GaitGr-0001-01 --source amass      # a whole SMPL-H trial
+python visualise_tool.py 138H-Hlth-GaitGr-0001-0100 --save clip.mp4   # no window
+python visualise_tool.py 138H-Hlth-GaitGr-0001-0100 --save-figure clip.png
+```
+
+**Add files…** Files can be picked from `new_joints` or `new_joint_vecs` (the matching joint
+positions are shown), from `SMPLH_AMASS`, and also from a build in
+`dataset_build/`, in which case the build's own `emg/` files are used.
+
+| `--source` | joints shown when a clip is named rather than picked |
+|---|---|
+| `hml3d` (default) | 263dim_HumanML3D_normalisation |
+| `hml3d-tt` | the same, with treadmill trials translated |
+| `subject` | 263dim_original_proportions |
+| `subject-tt` | the same, with treadmill trials translated |
+| `amass` | SMPLH_AMASS, one whole trial per file |
+| `amass-tt` | the same, with treadmill trials translated |
+
+Overground clips are the same in the original and translated sources. Naming a
+263-dim clip with an `amass` source opens its trial, and naming a trial with a
+263-dim source opens all of its clips; the **Joints source** buttons in the
+window switch the same way. Mirrored clips (`M` prefix) exist in 263-dim only.
+
+Unmeasured joints are not drawn (in SMPLH_AMASS files, those marked False in
+`measured_joints`), and unrecorded EMG channels are greyed out.
+`--emg-scale muscle` scales each left/right pair together, so
+the two sides can be compared; `--global-frame` fixes the camera so the subject
+is seen travelling. `python visualise_tool.py --help` lists every option.
+
+`--body` (or **SMPL body** in the window) overlays the neutral SMPL-H body
+fitted to the joints. It needs the SMPL-H body model, as do exact skeletons for
+SMPLH_AMASS files (see below).
+
+### Installing the SMPL-H body model (optional)
+
+The SMPL-H model is licensed separately and is not part of MoE3D. Everything
+except `--body` and exact SMPLH_AMASS skeletons works without it.
+
+1. Register at [mano.is.tue.mpg.de](https://mano.is.tue.mpg.de) and accept the
+   licence.
+2. On the **Download** page, download **Extended SMPL+H model** (the version
+   used by AMASS), `smplh.tar.xz`.
+3. Unpack it into `visualisation/body_models/smplh/`:
+
+   ```bash
+   mkdir -p visualisation/body_models/smplh
+   tar -xf smplh.tar.xz -C visualisation/body_models/smplh
+   ```
+
+4. Check that these three files exist in the correct locations:
+
+   ```
+   visualisation/body_models/smplh/neutral/model.npz
+   visualisation/body_models/smplh/male/model.npz
+   visualisation/body_models/smplh/female/model.npz
+   ```

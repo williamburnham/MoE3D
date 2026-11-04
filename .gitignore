@@ -6,6 +6,12 @@ data/*
 data/MoE3D_data/*
 !data/MoE3D_data/.gitkeep
 
+# The SMPL-H body model is licensed separately (mano.is.tue.mpg.de); never
+# commit it, wherever it is put
+visualisation/body_models/
+**/body_models/
+*.pkl
+
 # Builds written by build_dataset.py
 dataset_build/*
 !dataset_build/.gitkeep
