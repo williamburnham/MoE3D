@@ -1,4 +1,4 @@
-# MoE3D — MoE3D: A Dataset of Healthy and Post-Stroke Motion Capture and Electromyography for Machine Learning
+# MoE3D: A Dataset of Healthy and Post-Stroke Motion Capture and Electromyography for Machine Learning
 
 MoE3D pairs full-body motion with surface EMG from multiple sub-datasets of healthy,
 stroke and spastic-paraplegia participants. Everything is stored once, in its most
@@ -356,13 +356,15 @@ for f in fig*/make_figure.py; do python "$f"; done
 `rom_all.csv`, `rom_all_unfiltered.csv`, `anova_trial_level.csv`), which are
 not committed.
 
+`validation/classifier` runs a stroke detection classifier on the HumanML3D_normalised
+dataset of overground and treadmill translated gait data.
+
 
 ## 9. Visualisation
 
 `visualisation/visualise_tool.py` plays a clip's skeleton next to its EMG, and
 saves what is on screen as a video (`.mp4`, `.gif`) or as a still figure of
-overlaid frames. Needs numpy and matplotlib, tkinter for the window, and ffmpeg
-for `.mp4`.
+overlaid frames. Needs numpy, matplotlib, tkinter, and ffmpeg.
 
 ```bash
 cd visualisation
@@ -374,7 +376,7 @@ python visualise_tool.py 138H-Hlth-GaitGr-0001-0100 --save clip.mp4   # no windo
 python visualise_tool.py 138H-Hlth-GaitGr-0001-0100 --save-figure clip.png
 ```
 
-**Add files…** Files can be picked from `new_joints` or `new_joint_vecs` (the matching joint
+**Add files** Files can be picked from `new_joints` or `new_joint_vecs` (the matching joint
 positions are shown), from `SMPLH_AMASS`, and also from a build in
 `dataset_build/`, in which case the build's own `emg/` files are used.
 
