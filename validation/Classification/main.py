@@ -9,7 +9,8 @@ from torch.utils.data import DataLoader
 
 from dataset.dataset import CLASSES, MAX_LEN, parse, MotionDataset
 from model.transformer import Transformer
-from model.train_model import training_loop, predict, balanced_accuracy, get_device
+from model.train_model import (training_loop, predict, balanced_accuracy, sensitivity_specificity, get_device,
+                               metrics_row, per_participant, summary_rows, save_metrics_csv)
 from plots import plot_confusion, plot_roc
 
 
@@ -47,7 +48,7 @@ def main(args):
 
     # k-fold CV on the pool: each fold validates on 1/k of the pool, trains on the rest
     skf = StratifiedKFold(n_splits=args.folds, shuffle=True, random_state=args.seed)
-    best_paths, val_rocs, val_bal_acc = [], [], []
+    best_paths, val_rocs, val_bal_acc, val_sens, val_spec, val_rows = [], [], [], [], [], []
     for k, (train_idx, val_idx) in enumerate(skf.split(prt_cv, lab_cv)):
         print(f"\nFold {k + 1}/{args.folds}")
         train_files = files_for(files, prt_cv[train_idx])
@@ -67,11 +68,18 @@ def main(args):
         fpr, tpr, _ = roc_curve(labels, probs)
         val_rocs.append((fpr, tpr, roc_auc_score(labels, probs)))
         val_bal_acc.append(balanced_accuracy(probs, labels))
-        print(f"  VAL balanced acc {val_bal_acc[-1]:.3f}  AUC {val_rocs[-1][2]:.3f}")
+        sens, spec = sensitivity_specificity(probs, labels)
+        val_sens.append(sens); val_spec.append(spec)
+        val_rows.append(metrics_row("cv_val", k + 1, "clip", probs, labels))
+        print(f"  VAL balanced acc {val_bal_acc[-1]:.3f}  sensitivity {sens:.3f}  "
+              f"specificity {spec:.3f}  AUC {val_rocs[-1][2]:.3f}")
 
     val_aucs, val_accs = np.array([a for _, _, a in val_rocs]), np.array(val_bal_acc)
-    print(f"\n{args.folds}-fold CV (validation)  balanced acc {val_accs.mean():.3f} +/- {val_accs.std():.3f}  "
-          f"AUC {val_aucs.mean():.3f} +/- {val_aucs.std():.3f}")
+    val_sens, val_spec = np.array(val_sens), np.array(val_spec)
+    print(f"\n{args.folds}-fold CV (validation, mean +/- SD over folds)")
+    for name, v in [("balanced acc", val_accs), ("sensitivity", val_sens),
+                    ("specificity", val_spec), ("AUC", val_aucs)]:
+        print(f"  {name:<13}{v.mean():.3f} +/- {v.std():.3f}")
     plot_roc(val_rocs, os.path.join(args.out_dir, "roc_cv_validation.png"),
              title=f"ROC, {args.folds}-fold CV (validation folds)")
 
@@ -86,19 +94,32 @@ def main(args):
     probs = np.mean(member_probs, axis=0)
     fpr, tpr, _ = roc_curve(labels, probs)
     test_auc, test_acc = roc_auc_score(labels, probs), balanced_accuracy(probs, labels)
-    print(f"\nTEST (ensemble of {args.folds})  balanced acc {test_acc:.3f}  AUC {test_auc:.3f}")
+    test_sens, test_spec = sensitivity_specificity(probs, labels)
+    print(f"\nTEST (ensemble of {args.folds}, threshold 0.5)")
+    for name, v in [("balanced acc", test_acc), ("sensitivity", test_sens),
+                    ("specificity", test_spec), ("AUC", test_auc)]:
+        print(f"  {name:<13}{v:.3f}")
 
     names = sorted(CLASSES, key=CLASSES.get)
     cm = confusion_matrix(labels, (probs >= 0.5).astype(int), labels=[0, 1])
     plot_confusion(cm, names, os.path.join(args.out_dir, "confusion_matrix_test.png"),
-                   title="Test set confusion matrix (clip level)")
+                   title=f"Test set (clips): sensitivity {test_sens:.3f}, specificity {test_spec:.3f}")
     member_rocs = [(*roc_curve(labels, p)[:2], roc_auc_score(labels, p)) for p in member_probs]
     plot_roc(member_rocs, os.path.join(args.out_dir, "roc_test.png"),
              title="ROC, fixed test set", main=(fpr, tpr, test_auc))
     np.savez(os.path.join(args.out_dir, "test_predictions.npz"), probs=probs, labels=labels,
              member_probs=np.array(member_probs), test_files=np.array(test_files),
-             val_bal_acc=val_accs, val_auc=val_aucs)
-    print(f"Plots and predictions saved to {args.out_dir}/")
+             val_bal_acc=val_accs, val_auc=val_aucs, val_sens=val_sens, val_spec=val_spec,
+             test_bal_acc=test_acc, test_auc=test_auc, test_sens=test_sens, test_spec=test_spec)
+    # Metrics table: each CV fold, CV mean/SD, then the test set at clip and participant level
+    test_ids = [parse(f)[1] for f in test_files]
+    rows = val_rows + summary_rows(val_rows, "cv_val")
+    rows.append(metrics_row("test", "ensemble", "clip", probs, labels))
+    rows.append(metrics_row("test", "ensemble", "participant", *per_participant(probs, labels, test_ids)))
+    for k, p in enumerate(member_probs):
+        rows.append(metrics_row("test", f"model{k + 1}", "clip", p, labels))
+    save_metrics_csv(rows, os.path.join(args.out_dir, "metrics.csv"))
+    print(f"Plots, predictions and metrics.csv saved to {args.out_dir}/")
 
 
 if __name__ == "__main__":

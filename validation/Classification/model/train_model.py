@@ -19,9 +19,58 @@ def predict(model, dl, device):
     return torch.cat(probs).numpy(), torch.cat(ys).numpy()
 
 
-def balanced_accuracy(probs, labels, threshold=0.5):
+def sensitivity_specificity(probs, labels, threshold=0.5):
+    """Sensitivity = stroke clips called stroke (TPR); specificity = healthy clips called healthy (TNR)."""
     pred = (probs >= threshold).astype(int)
-    return 0.5 * ((pred[labels == 0] == 0).mean() + (pred[labels == 1] == 1).mean())
+    return float((pred[labels == 1] == 1).mean()), float((pred[labels == 0] == 0).mean())
+
+
+def balanced_accuracy(probs, labels, threshold=0.5):
+    return float(np.mean(sensitivity_specificity(probs, labels, threshold)))
+
+
+METRIC_COLUMNS = ["split", "fold", "level", "n", "n_stroke", "sensitivity", "specificity",
+                  "balanced_acc", "auc", "tp", "fn", "tn", "fp"]
+
+
+def metrics_row(split, fold, level, probs, labels, threshold=0.5):
+    """One row of the metrics table (a dict keyed by METRIC_COLUMNS)."""
+    from sklearn.metrics import roc_auc_score
+    pred = (probs >= threshold).astype(int)
+    sens, spec = sensitivity_specificity(probs, labels, threshold)
+    return {"split": split, "fold": fold, "level": level, "n": len(labels), "n_stroke": int(labels.sum()),
+            "sensitivity": sens, "specificity": spec, "balanced_acc": (sens + spec) / 2,
+            "auc": float(roc_auc_score(labels, probs)),
+            "tp": int(((pred == 1) & (labels == 1)).sum()), "fn": int(((pred == 0) & (labels == 1)).sum()),
+            "tn": int(((pred == 0) & (labels == 0)).sum()), "fp": int(((pred == 1) & (labels == 0)).sum())}
+
+
+def per_participant(probs, labels, participant_ids):
+    """Average each participant's clip probabilities -> (probs, labels), one per participant."""
+    ids = np.asarray(participant_ids); u = np.unique(ids)
+    return (np.array([probs[ids == i].mean() for i in u]),
+            np.array([labels[ids == i][0] for i in u]))
+
+
+def summary_rows(rows, split):
+    """Mean and SD rows over folds for the numeric metric columns."""
+    keys = ["sensitivity", "specificity", "balanced_acc", "auc"]
+    out = []
+    for name, fn in [("mean", np.mean), ("sd", np.std)]:
+        r = {c: "" for c in METRIC_COLUMNS}
+        r.update(split=split, fold=name, level=rows[0]["level"],
+                 **{k: float(fn([row[k] for row in rows])) for k in keys})
+        out.append(r)
+    return out
+
+
+def save_metrics_csv(rows, path):
+    import csv
+    with open(path, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=METRIC_COLUMNS)
+        w.writeheader()
+        for r in rows:
+            w.writerow({k: (f"{v:.4f}" if isinstance(v, float) else v) for k, v in r.items()})
 
 
 def training_loop(model, train_dl, train_labels, val_dl,
