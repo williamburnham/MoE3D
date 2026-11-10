@@ -26,5 +26,7 @@ __pycache__/
 validation/ROM_ANOVA/rom_*.csv
 validation/ROM_ANOVA/anova_trial_level.csv
 
+*.pt
+
 # LibreOffice lock files
 .~lock.*#
