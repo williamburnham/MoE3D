@@ -1,5 +1,5 @@
 {
-  "_comment": "Options for build_dataset.py --config. Keys starting with _ are ignored. See README.md, section 5.",
+  "_comment": "Options for build_dataset.py --config. See README.md, section 5.",
   "motion": "263dim_HumanML3D_normalisation",
   "emg": "processed",
   "trials": "overground_and_translated_treadmill_gait",

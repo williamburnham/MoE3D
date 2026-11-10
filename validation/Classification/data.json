@@ -1,0 +1,6 @@
+{
+  "_comment": "Data options for main.py --data_config. modality: 'motion' (263-dim joint vectors), 'emg' (processed 100 Hz EMG, 5 samples per 20 fps frame -> one token) or 'both' (motion + EMG, CA_Transformer with cross-attention). EMG/both need a build made with --emg processed; clips without EMG are skipped. emg_norm (emg and both): 'global' = each channel standardised with the training set's mean/std; 'per_clip' = each channel standardised within its own clip (removes amplitude differences between participants and labs).",
+  "modality": "both",
+  "emg_norm": "per_clip",
+  "dataset": "../../dataset_build/gait_healthy_and_stroke"
+}

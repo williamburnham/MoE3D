@@ -1,0 +1,4 @@
+split,model,level,n,n_stroke,sensitivity,specificity,balanced_acc,auc,tp,fn,tn,fp
+val,lr0.0003_do0.1_L4_H4,clip,542,74,1.0000,0.9188,0.9594,0.9637,74,0,430,38
+test,lr0.0003_do0.1_L4_H4,clip,904,74,0.8919,0.9675,0.9297,0.9602,66,8,803,27
+test,lr0.0003_do0.1_L4_H4,participant,73,12,0.9167,0.9836,0.9501,0.9795,11,1,60,1

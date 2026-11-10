@@ -52,32 +52,28 @@ def plot_confusion(cm, class_names, path, title="Confusion matrix"):
     fig.tight_layout(); fig.savefig(path, dpi=150); plt.close(fig)
 
 
-def plot_roc(curves, path, title="ROC", main=None):
-    """curves: list of (fpr, tpr, auc), one per fold model, drawn thinly.
-    main=None: also draw their mean ROC (TPR interpolated on a common FPR grid) with a +/-1 SD band.
-    main=(fpr, tpr, auc): draw that curve bold instead (e.g. the ensemble on the test set)."""
-    aucs = np.array([a for _, _, a in curves])
+def plot_roc(fpr, tpr, auc, path, title="ROC"):
+    """One ROC curve with the chance diagonal."""
     fig, ax = plt.subplots(figsize=(5, 5))
     ax.plot([0, 1], [0, 1], ls="--", lw=1, color=MUTED, label="Chance")
-    for k, (fpr, tpr, _) in enumerate(curves):
-        ax.plot(fpr, tpr, color=BLUE, lw=1, alpha=0.35,
-                label=f"Fold models (AUC {aucs.min():.3f}-{aucs.max():.3f})" if k == 0 else None)
-    if main is None:
-        grid = np.linspace(0, 1, 201)
-        tprs = np.array([np.interp(grid, fpr, tpr) for fpr, tpr, _ in curves])
-        tprs[:, 0] = 0.0
-        mean_tpr, sd_tpr = tprs.mean(0), tprs.std(0)
-        mean_tpr[-1] = 1.0
-        ax.fill_between(grid, np.clip(mean_tpr - sd_tpr, 0, 1), np.clip(mean_tpr + sd_tpr, 0, 1),
-                        color=BLUE, alpha=0.12, lw=0, label="±1 SD")
-        ax.plot(grid, mean_tpr, color=BLUE, lw=2.5,
-                label=f"Mean ROC (AUC {aucs.mean():.3f} ± {aucs.std():.3f})")
-    else:
-        fpr, tpr, auc = main
-        ax.plot(fpr, tpr, color=BLUE, lw=2.5, label=f"Ensemble (AUC {auc:.3f})")
+    ax.plot(fpr, tpr, color=BLUE, lw=2.5, label=f"Model (AUC {auc:.3f})")
     ax.set_xlim(0, 1); ax.set_ylim(0, 1.01); ax.set_aspect("equal")
     ax.set_xlabel("False positive rate"); ax.set_ylabel("True positive rate (stroke)")
     ax.set_title(title, fontsize=11)
     _style(ax)
     ax.legend(frameon=False, loc="lower right", fontsize=9)
+    fig.tight_layout(); fig.savefig(path, dpi=150); plt.close(fig)
+
+
+def plot_loss(train_loss, val_loss, path, best_epoch=None):
+    """Train vs validation loss per epoch; the saved (best validation accuracy) epoch is marked."""
+    epochs = range(1, len(train_loss) + 1)
+    fig, ax = plt.subplots(figsize=(7, 4))
+    ax.plot(epochs, train_loss, color=BLUE, lw=2, label="Train")
+    ax.plot(epochs, val_loss, color=ORANGE, lw=2, label="Validation")
+    if best_epoch is not None:
+        ax.axvline(best_epoch + 1, color=MUTED, lw=1, ls="--", label=f"Saved epoch ({best_epoch + 1})")
+    ax.set_xlabel("Epoch"); ax.set_ylabel("Class-weighted cross-entropy"); ax.set_ylim(bottom=0)
+    _style(ax); ax.grid(axis="x", visible=False)
+    ax.legend(frameon=False, loc="upper right")
     fig.tight_layout(); fig.savefig(path, dpi=150); plt.close(fig)

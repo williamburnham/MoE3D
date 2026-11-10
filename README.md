@@ -154,8 +154,7 @@ overground trial plus the treadmill trials in that version.
 Instead of typing the options, keep them in a JSON file and pass it with
 `--config`. The keys are the option names without the dashes: `motion`, `emg`,
 `trials`, `subdatasets`, `exclude` and `name`. Any key you leave out takes its
-usual default. Keys starting with `_` are ignored, so you can use them as
-comments. `config_example.json`:
+usual default. `config_example.json`:
 
 ```json
 {
@@ -358,6 +357,39 @@ not committed.
 
 `validation/classifier` runs a stroke detection classifier on the HumanML3D_normalised
 dataset of overground and treadmill translated gait data.
+
+```bash
+cd validation/Classification && python main.py --config hparams.json
+```
+
+`data.json` selects the input: `"modality": "motion"` (263-dim joint vectors),
+`"emg"` (processed EMG; the 5 samples of each 20 fps frame, all 20 channels,
+form one 100-dim token, so a token lines up with a motion frame) or `"both"`
+(motion and EMG as two streams in `model/ca_transformer.py`: each stream has
+self-attention, then cross-attention to the other stream, with pre-norm
+residual skips; the two CLS outputs are concatenated and classified), plus the
+`dataset` build to read (`--dataset` overrides it). EMG and both need a build
+made with `--emg processed`; clips with no EMG are skipped (so `emg` and `both`
+use the same participants and splits), and channels not recorded in a file are
+set to 0 after normalisation.
+
+`"emg_norm"` (for `emg` and `both`) sets how EMG channels are standard-scaled: `"global"` (default)
+uses each channel's mean/std over the training participants; `"per_clip"`
+z-scores each channel within its own clip, removing amplitude differences
+between participants and labs (no MVC normalisation exists, section 7), so the
+model sees only the shape and timing of activation. Per-clip runs are saved to
+`results/emg_per_clip/` or `results/both_per_clip/`.
+
+`hparams.json` lists the values to grid search for `lr`, `dropout`, `n_layers` and
+`n_heads` (use a one-value list to fix a parameter). Participants are split into
+train / validation / test (20% test, then 20% of the rest for validation), and
+Mean/Std (motion or EMG) are recomputed from the training participants only. Every combination
+is trained on train and scored on validation; the one with the best validation
+balanced accuracy is chosen (`grid_search.csv`, `best_hparams.json`) and scored
+once on the test participants (`metrics.csv`, clip and participant level). Each
+run's loss and accuracy curves are in `results/<modality>/grid/<combination>/`,
+and the chosen run's are copied to `results/<modality>/loss.png` and
+`accuracy.png`.
 
 
 ## 9. Visualisation

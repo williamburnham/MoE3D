@@ -1,0 +1,7 @@
+{
+  "_comment": "Grid search for main.py --config. Use a single-value list to fix a parameter. n_heads must divide d_model (64).",
+  "lr": [1e-4, 3e-4],
+  "dropout": [0.1, 0.3],
+  "n_layers": [1, 2, 3, 4],
+  "n_heads": [4]
+}
